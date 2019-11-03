@@ -1,1 +1,192 @@
-Hallo. Ich spiele Bingo!
+ <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd"> <html>
+<head>
+<script type="text/javascript">
+
+function get_state() {
+	// returns state as a string of 0 and 1
+	var url = new URL(window.location.href);
+	if (!url.searchParams.has("state")) {
+		url.searchParams.set("state", "0000000000000000");
+	} 
+	str_state = "" + url.searchParams.get("state") 
+	if (str_state.length != 16) {
+		// errors in state! reset
+		url.searchParams.set("state", "0000000000000000");
+		window.history.pushState({}, null, url);
+		return get_state();
+	}
+	return str_state;
+}
+
+
+function update_table_style() {
+	// Updates the entire table
+	state = get_state();
+	for (var i = 0; i < 16; i++) {
+  		var cell = document.getElementById("question_"+i);
+		if (state.charAt(i) == "0") {
+			cell.style.backgroundColor = "white";
+		} else {
+			cell.style.backgroundColor = "green";
+		}
+	}
+}
+
+
+
+function check_for_Bingo() {
+	// Check if bingo is present 
+	state = get_state();
+	seqeunces = [
+		[0,1,2,3], [4,5,6,7], [8,9,10,11], [12,13,14,15],
+		[ 0,  4,  8, 12], [ 1,  5,  9, 13], [ 2,  6, 10, 14], [ 3,  7, 11, 15],
+		[0,5,10,15], [3,6,9,12] 
+	];
+	for (let i=0; i < seqeunces.length; i++) {
+		var found = seqeunces[i].every( ii => {
+			return state.charAt(ii) == "1";
+		})
+		if (found) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function process_Bingo() {
+	var div_bingo = document.getElementById("bingo");
+	if (check_for_Bingo()) {
+		div_bingo.innerHTML = "Bingo!"
+	} else {
+		div_bingo.innerHTML = ""
+	}
+}
+
+
+function mark_listener(i) {
+	// Handles button ckicks on the Bingo table.
+	return function() {
+		state = get_state().split("");
+		if (state[i] == "0") {
+			state[i] = "1"
+		} else {
+			state[i] = "0"
+		}
+		console.log("state:" + state);
+		// update GET method
+		var url = new URL(window.location.href);
+		url.searchParams.set("state", state.join(''));
+		window.history.pushState({}, null, url);
+		update_table_style();
+		process_Bingo();
+	}
+}
+
+
+function fillTable(nl, data) { // nl -> NodeList, data -> array with objects
+  var tr = "";
+  data.forEach((question, i) => {
+    if (i % 4 == 0) {tr = nl.insertRow();}
+    var cell = tr.insertCell();
+    cell.innerHTML = question; // Assign object values to cells 
+    cell.id = "question_" + i;
+    cell.addEventListener("click", mark_listener(i));  
+    if (i % 4 == 3) {nl.appendChild(tr); }
+  })
+}
+
+function get_seed() {
+	// Read GET seed. If not set, generates new one
+	var url = new URL(window.location.href);
+	if (url.searchParams.has("seed")) {
+		return url.searchParams.get("seed");
+	} 
+	url = new URL(window.location.href.split('?')[0] + "?seed=1&state=0");
+	var random_seed = Math.floor(Math.random() * 10000000)
+	url.searchParams.set('seed', random_seed);
+	window.history.pushState({}, null, url);
+	return random_seed;
+}
+
+function mulberry32(seed) {
+	// Random number generator 
+	// https://stackoverflow.com/questions/521295/seeding-the-random-number-generator-in-javascript
+    return function() {
+      var t = seed += 0x6D2B79F5;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+}
+
+function xmur3(x) {
+	var str = x.toString();
+    for(var i = 0, h = 1779033703 ^ str.length; i < str.length; i++)
+        h = Math.imul(h ^ str.charCodeAt(i), 3432918353),
+        h = h << 13 | h >>> 19;
+    return function() {
+        h = Math.imul(h ^ h >>> 16, 2246822507);
+        h = Math.imul(h ^ h >>> 13, 3266489909);
+        return (h ^= h >>> 16) >>> 0;
+    }
+}
+
+function shuffleArrayImp(array, seed) {
+	// Randomize array element order in-place.
+	// Using Durstenfeld shuffle algorithm.
+	var random_gen = mulberry32(xmur3(seed)());
+	console.log("seed:" + seed);
+    for (let i = array.length - 1; i > 0; i--) {
+    	var r = random_gen()
+        var j = Math.floor(r * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+}
+
+function main() {
+
+	var sample_questions = [
+	   "Question 1",
+	   "Question 2",
+	   "Question 3",
+	   "Question 4",
+	   "Question 5",
+	   "Question 6",
+	   "Question 7",
+	   "Question 8",
+	   "Question 9",
+	   "Question 10",
+	   "Question 11",
+	   "Question 12",
+	   "Question 13",
+	   "Question 14",
+	   "Question 15",
+	   "Question 16",
+	   "Question 17"
+	];
+	var table_bingo = document.querySelector("#table tbody");
+	shuffleArrayImp(sample_questions, get_seed());
+
+	fillTable(table_bingo, sample_questions.slice(0,16));
+	update_table_style();
+	process_Bingo();
+}
+
+
+</script>
+</head>
+<body onload="main();">
+	Hallo. Ich spiele Bingo!
+<table border='1' id='table'>
+<tbody>
+</tbody>
+</table>
+<!-- <button onClick='addRow("123","456");return false;'>
+	Add Row
+</button> -->
+<div id="bingo"></div>
+<a href="https://scibingo.github.io/">New game</a>
+</body>
+</html>
+
+
